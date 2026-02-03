@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Prompt Shield</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="matrix-bg"></canvas>
+
+    <nav class="navbar">
+        <a href="/" class="logo">🛡️ PROMPT <span>SHIELD</span></a>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Home</a>
+            <a href="playground.html" class="nav-link">Playground</a>
+            <a href="settings.html" class="nav-link active">Settings</a>
+        </div>
+    </nav>
+
+    <header class="settings-hero">
+        <h1>Developer Settings</h1>
+        <p>Generate your Shield key, connect providers, and manage BYOK access from a single control panel.</p>
+    </header>
+
+    <section class="settings-shell">
+        <div class="settings-grid">
+            <div class="settings-card">
+                <h2>Access Dashboard</h2>
+                <p class="settings-note">Enter your email to mint a Shield API key. We will use it to authenticate all proxy requests.</p>
+                <label class="settings-label" for="email">YOUR EMAIL</label>
+                <input type="email" id="email" placeholder="dev@matrix.com">
+                <button onclick="register()" class="btn btn-primary settings-btn">Enter Dashboard</button>
+            </div>
+
+            <div id="dashboard-ui" class="settings-panel" style="display:none;">
+                <div class="tab-bar">
+                    <button class="tab-btn active" onclick="switchTab(event, 'tab-overview')">Credentials</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-connections')">API Connections</button>
+                </div>
+
+                <div id="tab-overview" class="tab-pane active">
+                    <div class="api-key-card">
+                        <label class="settings-label">YOUR SHIELD API KEY</label>
+                        <div id="active-key" class="api-key-box"></div>
+                        <p class="settings-note">Include this key in the <code>x-api-key</code> header for all proxy requests.</p>
+                    </div>
+                </div>
+
+                <div id="tab-connections" class="tab-pane" style="display:none;">
+                    <div class="api-key-card">
+                        <p class="settings-note">Save your own keys to use BYOK Mode and bypass service markups.</p>
+
+                        <div class="key-field">
+                            <label class="settings-label">OPENAI KEY</label>
+                            <div class="key-row">
+                                <input type="password" id="openai-key" placeholder="sk-...">
+                                <button onclick="saveProviderKey('openai')" class="btn btn-secondary">Save</button>
+                            </div>
+                        </div>
+
+                        <div class="key-field">
+                            <label class="settings-label">ANTHROPIC KEY</label>
+                            <div class="key-row">
+                                <input type="password" id="anthropic-key" placeholder="sk-ant-...">
+                                <button onclick="saveProviderKey('anthropic')" class="btn btn-secondary">Save</button>
+                            </div>
+                        </div>
+
+                        <div class="key-field">
+                            <label class="settings-label">GEMINI KEY</label>
+                            <div class="key-row">
+                                <input type="password" id="gemini-key" placeholder="AIza...">
+                                <button onclick="saveProviderKey('gemini')" class="btn btn-secondary">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="matrix.js"></script>
+    <script>
+        initMatrix('matrix-bg');
+
+        let currentUserApiKey = '';
+
+        async function register() {
+            const email = document.getElementById('email').value;
+            const res = await fetch('/v1/dashboard/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+            if (data.apiKey) {
+                currentUserApiKey = data.apiKey;
+                document.getElementById('dashboard-ui').style.display = 'block';
+                document.getElementById('active-key').innerText = data.apiKey;
+            }
+        }
+
+        function switchTab(evt, tabName) {
+            const panes = document.getElementsByClassName('tab-pane');
+            for (let i = 0; i < panes.length; i++) panes[i].style.display = 'none';
+            const btns = document.getElementsByClassName('tab-btn');
+            for (let i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+            document.getElementById(tabName).style.display = 'block';
+            evt.currentTarget.classList.add('active');
+        }
+
+        async function saveProviderKey(provider) {
+            const key = document.getElementById(`${provider}-key`).value;
+            if (!key) return;
+
+            const btn = event.currentTarget;
+            btn.innerText = 'Saving...';
+
+            const res = await fetch('/v1/dashboard/configure', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': currentUserApiKey
+                },
+                body: JSON.stringify({ provider, key })
+            });
+            const data = await res.json();
+            btn.innerText = data.status === 'ok' ? 'Saved' : 'Error';
+            setTimeout(() => { btn.innerText = 'Save'; }, 2000);
+        }
+    </script>
+</body>
+</html>
